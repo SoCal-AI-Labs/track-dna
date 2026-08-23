@@ -42,7 +42,7 @@ def save_settings(data: dict) -> None:
     SETTINGS_PATH.write_text(json.dumps(current, indent=2), encoding="utf-8")
 
 
-def polish_suno(dna: dict, instrumental: bool = True, settings: dict | None = None) -> dict:
+def polish_suno(dna: dict, settings: dict | None = None) -> dict:
     cfg = settings or load_settings()
     api_key = (cfg.get("api_key") or "").strip()
     if not api_key:

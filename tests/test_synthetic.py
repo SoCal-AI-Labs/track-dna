@@ -59,7 +59,7 @@ def test_synthetic_tempo_and_suno():
         assert dna["duration_sec"] >= 20
         assert len(dna["sections"]) >= 2
         assert dna["key"].split()[0] in {"A", "C", "Am", "C#", "G", "E", "F"}
-        suno = format_suno(dna, instrumental=True, detailed=True)
+        suno = format_suno(dna, detailed=True)
         assert "BPM" in suno["style"]
         assert any(tag in suno["lyrics"] for tag in ("[Intro]", "[Verse]", "[Chorus]", "[Outro]", "[Break]"))
         assert "(" not in suno["lyrics"]

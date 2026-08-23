@@ -7,10 +7,9 @@ STYLE_LIMIT = 1000
 LYRICS_LIMIT = 3000
 
 
-def format_suno(dna: dict, instrumental: bool = True, detailed: bool = True) -> dict:
-    instrumental = True
-    style = _style_line(dna, instrumental=instrumental, detailed=detailed)
-    lyrics = _lyrics_block(dna, instrumental=instrumental, detailed=detailed)
+def format_suno(dna: dict, detailed: bool = True) -> dict:
+    style = _style_line(dna, detailed=detailed)
+    lyrics = _lyrics_block(dna, detailed=detailed)
     style = _clip(style, STYLE_LIMIT)
     lyrics = _clip(lyrics, LYRICS_LIMIT)
     paste = (
@@ -23,20 +22,20 @@ def format_suno(dna: dict, instrumental: bool = True, detailed: bool = True) -> 
         "style": style,
         "lyrics": lyrics,
         "paste": paste,
-        "instrumental": instrumental,
+        "instrumental": True,
         "detailed": detailed,
         "style_chars": len(style),
         "lyrics_chars": len(lyrics),
     }
 
 
-def _style_line(dna: dict, instrumental: bool, detailed: bool) -> str:
+def _style_line(dna: dict, detailed: bool) -> str:
     if not detailed:
-        return _join_budget(_compact_tags(dna, instrumental), STYLE_LIMIT)
-    return _join_budget(_dna_clauses(dna, instrumental), STYLE_LIMIT)
+        return _join_budget(_compact_tags(dna), STYLE_LIMIT)
+    return _join_budget(_dna_clauses(dna), STYLE_LIMIT)
 
 
-def _compact_tags(dna: dict, instrumental: bool) -> list[str]:
+def _compact_tags(dna: dict) -> list[str]:
     genres = [g for g in (dna.get("genres") or []) if g][:3]
     tags = genres or [_measured_genre(dna)]
     artist = _artist_clause(dna)
@@ -49,7 +48,7 @@ def _compact_tags(dna: dict, instrumental: bool) -> list[str]:
     return _dedupe(tags)[:10]
 
 
-def _dna_clauses(dna: dict, instrumental: bool) -> list[str]:
+def _dna_clauses(dna: dict) -> list[str]:
     key = spell_key(dna.get("key", ""))
     runner = spell_key(dna.get("key_runner_up", ""))
     clauses = [
@@ -74,7 +73,7 @@ def _dna_clauses(dna: dict, instrumental: bool) -> list[str]:
     return [c for c in clauses if c]
 
 
-def _lyrics_block(dna: dict, instrumental: bool, detailed: bool) -> str:
+def _lyrics_block(dna: dict, detailed: bool) -> str:
     key = dna.get("key", "")
     lines: list[str] = []
     sections = dna.get("sections") or []
@@ -87,7 +86,7 @@ def _lyrics_block(dna: dict, instrumental: bool, detailed: bool) -> str:
             for extra in _section_detail_tags(sec, key):
                 lines.append(f"[{extra}]")
         else:
-            for extra in _section_short_tags(sec, True):
+            for extra in _section_short_tags(sec):
                 lines.append(f"[{extra}]")
         lines.append("")
     return "\n".join(lines).strip() + "\n"
@@ -112,7 +111,7 @@ def _section_detail_tags(sec: dict, key: str) -> list[str]:
     return tags[:4]
 
 
-def _section_short_tags(sec: dict, instrumental: bool) -> list[str]:
+def _section_short_tags(sec: dict) -> list[str]:
     tags = []
     tags.append(sec.get("spectral_tilt", "balanced"))
     perc = float(sec.get("percussive_pct", 0))
