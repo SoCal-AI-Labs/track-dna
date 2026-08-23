@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 
 from trackdna.ai import load_settings
+from trackdna.identity import dump_ytdlp_meta, load_sidecar, save_sidecar
 from trackdna.pot import POT_HOST, POT_PORT, ensure_pot_server, node_runtime
 
 AUDIO_SUFFIXES = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aac", ".aiff", ".aif"}
@@ -17,6 +18,11 @@ MAX_DOWNLOAD_BYTES = 250 * 1024 * 1024
 
 
 def resolve_source(source: str, workdir: str | Path | None = None, progress=None) -> Path:
+    path, _meta = resolve_bundle(source, workdir=workdir, progress=progress)
+    return path
+
+
+def resolve_bundle(source: str, workdir: str | Path | None = None, progress=None) -> tuple[Path, dict]:
     text = source.strip().strip('"')
     if not text:
         raise RuntimeError("No file or URL provided.")
@@ -28,23 +34,28 @@ def resolve_source(source: str, workdir: str | Path | None = None, progress=None
         if cached and cached.exists():
             if progress:
                 progress("Using cached audio from the last download")
-            return cached
+            meta = load_sidecar(cached) or {"id": video_id}
+            meta.setdefault("source_url", url)
+            meta.setdefault("source_kind", "url")
+            return cached, meta
 
         dest_dir = Path(workdir) if workdir else Path(tempfile.mkdtemp(prefix="trackdna_"))
         dest_dir.mkdir(parents=True, exist_ok=True)
         if progress:
-            progress("Downloading audio…")
-        path = _from_url(url, dest_dir, progress=progress)
+            progress("Downloading audio and page metadata…")
+        path, meta = _from_url(url, dest_dir, progress=progress)
         if video_id:
-            return _store_cache(video_id, path)
-        return path
+            path = _store_cache(video_id, path)
+        if meta:
+            save_sidecar(path, meta)
+        return path, meta
 
     path = Path(text).expanduser()
     if not path.exists():
         raise RuntimeError(f"File not found: {path}")
     if path.suffix.lower() not in AUDIO_SUFFIXES:
         raise RuntimeError(f"Unsupported file type '{path.suffix}'. Use WAV, MP3, FLAC, OGG, or M4A.")
-    return path.resolve()
+    return path.resolve(), {"source_kind": "file", "title": path.stem}
 
 
 def _looks_like_url(text: str) -> bool:
@@ -85,11 +96,11 @@ def _store_cache(video_id: str, path: Path) -> Path:
     return dest
 
 
-def _from_url(url: str, dest_dir: Path, progress=None) -> Path:
+def _from_url(url: str, dest_dir: Path, progress=None) -> tuple[Path, dict]:
     parsed = urlparse(url)
     suffix = Path(parsed.path).suffix.lower()
     if suffix in AUDIO_SUFFIXES:
-        return _download_direct(url, dest_dir, suffix)
+        return _download_direct(url, dest_dir, suffix), {"source_url": url, "source_kind": "url"}
 
     try:
         return _download_ytdlp(url, dest_dir, progress=progress)
@@ -124,52 +135,61 @@ def _download_direct(url: str, dest_dir: Path, suffix: str) -> Path:
     return dest
 
 
-def _download_ytdlp(url: str, dest_dir: Path, progress=None) -> Path:
+def _download_ytdlp(url: str, dest_dir: Path, progress=None) -> tuple[Path, dict]:
     from yt_dlp import YoutubeDL
 
     ensure_pot_server(progress=progress)
-    cookies = (load_settings().get("cookies_txt") or "").strip()
     outtmpl = str(dest_dir / "%(id)s.%(ext)s")
-    attempts = [
-        {"player_client": ["web_embedded", "android_vr"]},
-        {"player_client": ["mweb", "web_embedded", "android_vr"]},
-        {"player_client": ["default", "-android_sdkless"]},
-    ]
     last_error: Exception | None = None
-    for extra in attempts:
-        opts = {
-            "format": "bestaudio/best",
-            "outtmpl": outtmpl,
-            "noplaylist": True,
-            "quiet": True,
-            "no_warnings": True,
-            "retries": 2,
-            "max_filesize": MAX_DOWNLOAD_BYTES,
-            "js_runtimes": node_runtime(),
-            "extractor_args": {
-                "youtube": extra,
-                "youtubepot-bgutilhttp": {"base_url": [f"http://{POT_HOST}:{POT_PORT}"]},
-            },
-            "postprocessors": [
-                {"key": "FFmpegExtractAudio", "preferredcodec": "wav", "preferredquality": "0"}
-            ],
-        }
-        if cookies and Path(cookies).exists():
-            opts["cookiefile"] = cookies
+    for extra in _player_attempts():
+        opts = _ytdlp_opts(extra)
+        opts["outtmpl"] = outtmpl
+        opts["format"] = "bestaudio/best"
+        opts["max_filesize"] = MAX_DOWNLOAD_BYTES
+        opts["postprocessors"] = [
+            {"key": "FFmpegExtractAudio", "preferredcodec": "wav", "preferredquality": "0"}
+        ]
         try:
             with YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 requested = ydl.prepare_filename(info)
+            meta = dump_ytdlp_meta(info, source_url=url)
             wav = Path(requested).with_suffix(".wav")
             if wav.exists():
-                return wav
+                return wav, meta
             matches = sorted(dest_dir.glob("*"), key=lambda p: p.stat().st_mtime, reverse=True)
             audio = [p for p in matches if p.suffix.lower() in AUDIO_SUFFIXES]
             if audio:
-                return audio[0]
+                return audio[0], meta
         except Exception as exc:
             last_error = exc
             continue
     if last_error:
         raise last_error
     raise RuntimeError("Download finished but no audio file was found.")
+
+
+def _player_attempts() -> list[dict]:
+    return [
+        {"player_client": ["web_embedded", "android_vr"]},
+        {"player_client": ["mweb", "web_embedded", "android_vr"]},
+        {"player_client": ["default", "-android_sdkless"]},
+    ]
+
+
+def _ytdlp_opts(player: dict) -> dict:
+    cookies = (load_settings().get("cookies_txt") or "").strip()
+    opts = {
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+        "retries": 2,
+        "js_runtimes": node_runtime(),
+        "extractor_args": {
+            "youtube": player,
+            "youtubepot-bgutilhttp": {"base_url": [f"http://{POT_HOST}:{POT_PORT}"]},
+        },
+    }
+    if cookies and Path(cookies).exists():
+        opts["cookiefile"] = cookies
+    return opts

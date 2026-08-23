@@ -37,11 +37,16 @@ def _style_line(dna: dict, instrumental: bool, detailed: bool) -> str:
 
 
 def _compact_tags(dna: dict, instrumental: bool) -> list[str]:
-    tags = [_genre_clause(dna), _mood_short(dna), "instrumental"]
+    genres = [g for g in (dna.get("genres") or []) if g][:3]
+    tags = genres or [_measured_genre(dna)]
+    artist = _artist_clause(dna)
+    if artist:
+        tags.append(artist)
+    tags.extend([_mood_short(dna), "instrumental"])
     tags.extend(_instrument_short(dna))
     tags.append(_image_clause(dna))
     tags.append(f"{_bpm(dna)} BPM")
-    return _dedupe(tags)[:8]
+    return _dedupe(tags)[:10]
 
 
 def _dna_clauses(dna: dict, instrumental: bool) -> list[str]:
@@ -49,6 +54,7 @@ def _dna_clauses(dna: dict, instrumental: bool) -> list[str]:
     runner = spell_key(dna.get("key_runner_up", ""))
     clauses = [
         _genre_clause(dna),
+        _artist_clause(dna),
         key,
         f"{_bpm(dna)} BPM",
         _groove_clause(dna),
@@ -138,6 +144,27 @@ def _suno_section_tag(label: str) -> str:
 
 
 def _genre_clause(dna: dict) -> str:
+    measured = _measured_genre(dna)
+    genres = [g for g in (dna.get("genres") or []) if g]
+    identity = dna.get("identity") or {}
+    if not genres:
+        genres = [g for g in (identity.get("genres") or []) if g]
+    if genres:
+        head = ", ".join(genres[:5])
+        if measured and measured.lower() not in head.lower():
+            return f"{head}, measured feel {measured}"
+        return head
+    return measured
+
+
+def _artist_clause(dna: dict) -> str:
+    artist = (dna.get("artist") or (dna.get("identity") or {}).get("artist") or "").strip()
+    if not artist:
+        return ""
+    return f"in the vein of {artist}"
+
+
+def _measured_genre(dna: dict) -> str:
     bpm = dna["tempo_bpm"]
     perc = dna["percussive_share"]
     swing = dna["swing_class"]

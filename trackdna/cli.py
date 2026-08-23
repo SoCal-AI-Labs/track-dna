@@ -7,7 +7,7 @@ from pathlib import Path
 
 from trackdna.analyze import analyze_track
 from trackdna.compare import compare_tracks, format_compare
-from trackdna.ingest import resolve_source
+from trackdna.ingest import resolve_bundle, resolve_source
 from trackdna.report import format_report
 from trackdna.suno import format_suno
 
@@ -52,8 +52,14 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _cmd_analyze(args) -> int:
-    path = resolve_source(args.source)
-    dna = analyze_track(path, segments=args.segments, min_len=args.min_len, progress=_print_progress)
+    path, meta = resolve_bundle(args.source)
+    dna = analyze_track(
+        path,
+        segments=args.segments,
+        min_len=args.min_len,
+        source_meta=meta,
+        progress=_print_progress,
+    )
     print(format_report(dna))
     if args.suno:
         suno = format_suno(dna)

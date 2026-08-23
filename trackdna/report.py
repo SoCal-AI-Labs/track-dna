@@ -21,6 +21,25 @@ def format_report(dna: dict) -> str:
         key += f"  (confidence {dna['key_confidence']:.2f})"
     lines.append(f"  Key          {key}")
     lines.append(f"  Beats        {dna['beat_count']}")
+    identity = dna.get("identity") or {}
+    if identity.get("artist") or dna.get("genres"):
+        lines.append("")
+        lines.append("ARTIST & GENRE")
+        if identity.get("artist") or dna.get("artist"):
+            lines.append(f"  Artist       {identity.get('artist') or dna.get('artist')}")
+        if identity.get("title") or dna.get("track_title"):
+            lines.append(f"  Title        {identity.get('title') or dna.get('track_title')}")
+        if identity.get("album"):
+            lines.append(f"  Album        {identity['album']}")
+        if identity.get("year"):
+            lines.append(f"  Year         {identity['year']}")
+        genres = dna.get("genres") or identity.get("genres") or []
+        if genres:
+            lines.append(f"  Genres       {', '.join(genres)}")
+        if identity.get("source_url"):
+            lines.append(f"  URL          {identity['source_url']}")
+        if identity.get("evidence"):
+            lines.append(f"  Evidence     {identity['evidence']}")
     lines.append("")
 
     lines.append("RHYTHM & FEEL")

@@ -76,9 +76,12 @@ Trust with care:
   printed whenever confidence is below 0.5.
 
 Not included in the DSP core: lyric transcription (needs Whisper), stem
-separation (needs Demucs), genre/instrument tagging (needs a trained model such
-as CLAP). Genre language in the Suno prompt is either a deterministic hint from
-the measurements or an optional LLM rewrite.
+separation (needs Demucs), or CLAP-style audio genre tagging.
+
+Genre in the prompt is assembled from URL/page metadata (title, channel, tags,
+description, allowlisted artist links), file tags, a MusicBrainz lookup, then a
+deterministic mix-feel hint from the measurements. Lyrics in a description are
+ignored.
 
 ## Tuning
 

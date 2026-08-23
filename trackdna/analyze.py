@@ -5,6 +5,7 @@ from pathlib import Path
 from trackdna import __version__
 from trackdna.audio import load_audio
 from trackdna.harmony import analyze_harmony
+from trackdna.identity import build_identity
 from trackdna.rhythm import analyze_rhythm
 from trackdna.spectrum import analyze_spectrum
 from trackdna.structure import analyze_structure
@@ -15,8 +16,11 @@ def analyze_track(
     path: str | Path,
     segments: int | None = None,
     min_len: float = 8.0,
+    source_meta: dict | None = None,
     progress=None,
 ) -> dict:
+    identity = build_identity(path, source_meta, progress=progress)
+
     audio = load_audio(path, progress=progress)
     rhythm = analyze_rhythm(audio, progress=progress)
     harmony = analyze_harmony(
@@ -48,7 +52,11 @@ def analyze_track(
     result = {
         "analysis_version": __version__,
         "source_path": audio.path,
-        "source_name": audio.name,
+        "source_name": identity.get("display_name") or audio.name,
+        "identity": identity,
+        "artist": identity.get("artist") or "",
+        "track_title": identity.get("title") or audio.name,
+        "genres": identity.get("genres") or [],
         "sample_rate": audio.sr,
         "channels": audio.channels,
         "duration_sec": round(audio.duration, 3),

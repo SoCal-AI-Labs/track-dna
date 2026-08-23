@@ -17,6 +17,7 @@ Most AI-music prompts are vibe guesses. Track DNA starts from DSP: BPM, key, swi
 - **Section map** — measured boundaries, tagged as instrumental form
 - **Suno / MiniMax paste** — style prompt + structure tags, each with a copy button
 - **Local or URL** — drop a file, or pull audio from YouTube when the download path works
+- **Artist and genre** — title, tags, description, and public artist pages inform the style prompt, plus a MusicBrainz lookup. No lyrics.
 - **Optional AI polish** — rewrite the prompt from the measured JSON if you add an API key
 - **CLI** — same engine from the terminal
 

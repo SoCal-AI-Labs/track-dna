@@ -17,8 +17,9 @@ Rules:
   The "lyrics" key is Suno's second box. It must contain structure tags only.
 - Never transcribe, quote, paraphrase, or invent sung/rapped words.
 - Style field: dense comma-separated clauses, use most of the 1000-character budget.
-  Must include measured BPM, key, groove, drum density, low-end balance, mid/top character,
-  stereo image, dynamics, form, and "instrumental no vocals".
+  Lead with identity.genres and artist ("in the vein of …") when present, then measured
+  BPM, key, groove, drum density, low-end balance, mid/top character, stereo image,
+  dynamics, form, and "instrumental no vocals". Never write lyrics or quote the source.
 - Second box: one [section] tag per measured section, then [Instrumental] and bracket-only
   arrangement notes (timestamps, energy, drums, chords). No unbracketed text.
 - Style max 1000 characters. Second box max 3000 characters.
