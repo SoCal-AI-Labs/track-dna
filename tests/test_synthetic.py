@@ -6,7 +6,11 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+import librosa
+
 from trackdna.analyze import analyze_track
+from trackdna.audio import load_audio
+from trackdna.rhythm import analyze_rhythm
 from trackdna.suno import format_suno
 
 
@@ -62,3 +66,21 @@ def test_synthetic_tempo_and_suno():
         assert len(suno["style"]) <= 1000
         assert len(suno["lyrics"]) <= 3000
         assert suno["style_chars"] > 80
+
+
+def test_octave_correction_resamples_beat_grid():
+    with tempfile.TemporaryDirectory() as tmp:
+        wav = Path(tmp) / "slow.wav"
+        write_synthetic(wav, bpm=58.0, seconds=24.0)
+        audio = load_audio(wav)
+        rhythm = analyze_rhythm(audio)
+        assert rhythm["tempo_raw_bpm"] < 70
+        assert rhythm["tempo_corrected"]
+        assert rhythm["tempo_bpm"] == rhythm["tempo_raw_bpm"] * 2
+
+        _raw_tempo, beat_frames = librosa.beat.beat_track(y=audio.y, sr=audio.sr, units="frames")
+        naive = librosa.frames_to_time(beat_frames, sr=audio.sr)
+        if naive.size == 0:
+            naive = np.array([0.0, audio.duration])
+        assert rhythm["beat_count"] > naive.size * 1.4
+        assert rhythm["beat_count"] == 2 * naive.size - 1

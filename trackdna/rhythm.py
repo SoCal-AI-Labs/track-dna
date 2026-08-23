@@ -18,6 +18,7 @@ def analyze_rhythm(audio: Audio, progress=None) -> dict:
     beats = librosa.frames_to_time(beat_frames, sr=sr)
     if beats.size == 0:
         beats = np.array([0.0, audio.duration], dtype=float)
+    beats = _resample_beats_for_octave(beats, raw_bpm, tempo_bpm)
 
     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
     onset_frames = librosa.onset.onset_detect(
@@ -63,6 +64,15 @@ def _octave_correct(raw_bpm: float) -> tuple[float, bool]:
     if bpm > 180:
         return bpm / 2.0, True
     return bpm, False
+
+
+def _resample_beats_for_octave(beats: np.ndarray, raw_bpm: float, corrected_bpm: float) -> np.ndarray:
+    if corrected_bpm == raw_bpm or beats.size < 2:
+        return beats
+    if corrected_bpm > raw_bpm:  # doubled -> interpolate midpoints
+        midpoints = (beats[:-1] + beats[1:]) / 2.0
+        return np.sort(np.concatenate([beats, midpoints]))
+    return beats[::2]  # halved -> keep every other beat
 
 
 def _grid_stats(onsets: np.ndarray, beats: np.ndarray, median_ioi: float) -> tuple[float, float]:
