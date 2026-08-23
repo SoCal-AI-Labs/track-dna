@@ -42,6 +42,14 @@ _DECK_LINES = (
 )
 
 
+def _app_icon() -> Path | None:
+    here = Path(__file__).resolve().parent
+    for candidate in (here.parent / "assets" / "track_dna.ico", here / "assets" / "track_dna.ico"):
+        if candidate.exists():
+            return candidate
+    return None
+
+
 class TrackDNAApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
@@ -51,6 +59,7 @@ class TrackDNAApp(ctk.CTk):
         self.geometry("1260x840")
         self.minsize(1040, 740)
         self.configure(fg_color=BG)
+        self._apply_icon()
 
         self.file_path = tk.StringVar()
         self.url_value = tk.StringVar()
@@ -76,6 +85,22 @@ class TrackDNAApp(ctk.CTk):
         self._build()
         self._tick_vinyl()
         self._tick_vu()
+
+    def _apply_icon(self, window=None) -> None:
+        icon = _app_icon()
+        if icon is None:
+            return
+        win = window or self
+        try:
+            win.iconbitmap(str(icon))
+        except tk.TclError:
+            return
+        if window is None:
+            try:
+                self.iconbitmap(default=str(icon))
+            except tk.TclError:
+                pass
+            self.after(200, lambda: self.iconbitmap(str(icon)))
 
     def _build(self) -> None:
         spine = ctk.CTkFrame(self, fg_color=TOMATO, width=8, corner_radius=0)
@@ -768,6 +793,7 @@ class TrackDNAApp(ctk.CTk):
         win.title("Settings")
         win.geometry("520x430")
         win.configure(fg_color=BG)
+        self._apply_icon(win)
         win.grab_set()
         card = ctk.CTkFrame(win, fg_color=PAPER, corner_radius=16)
         card.pack(fill="both", expand=True, padx=16, pady=16)
@@ -900,5 +926,11 @@ def _format_error(exc: BaseException) -> str:
 
 
 def main() -> None:
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("SoCalAILabs.TrackDNA.1")
+    except Exception:
+        pass
     app = TrackDNAApp()
     app.mainloop()
